@@ -4,11 +4,13 @@
 class BufferEntry
 {
 public:
+    unsigned int m_sn;
     void *m_ptr;
 
 public:
     BufferEntry()
-        : m_ptr(NULL)
+        : m_sn(0),
+          m_ptr(NULL)
     {
     }
 };

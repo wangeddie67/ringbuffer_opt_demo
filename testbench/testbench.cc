@@ -152,7 +152,7 @@ int main(int argc, char *argv[])
     pthread_barrier_init(&global_barrier, NULL, thread_num);
 
     // Core mapping array
-    int cpu_num = 1;
+    int cpu_num = 2;
     int core_per_cpu = sysconf(_SC_NPROCESSORS_ONLN) / cpu_num;
 
     // Create threads
