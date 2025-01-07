@@ -1,0 +1,6 @@
+.vscode
+progress64
+bin
+
+*.out
+*.o
