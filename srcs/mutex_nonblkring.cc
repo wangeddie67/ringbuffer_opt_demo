@@ -13,7 +13,7 @@ int lock(int *mutex)
 // Unlock function
 int unlock(int *mutex)
 {
-    *mutex = 0;
+    __sync_val_compare_and_swap(mutex, 1, 0);
     return 0;
 }
 

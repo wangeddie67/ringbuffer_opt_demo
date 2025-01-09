@@ -21,7 +21,6 @@ public:
     int m_thread_id;
     RingBuffer *m_ring_buf;
 
-    int total_op_num = 0;
     int valid_op_num = 0;
     double elapsed = 0.0;
 };
@@ -51,40 +50,26 @@ void *thread_function(void *args)
     {
         // dequeue
         void *data_ptr;
-        while (true)
+        int res = 1;
+        while (res)
         {
-            int res = dequeue_ringbuf(ring_buffer, &data_ptr);
-            if (i >= OPERATION && i <= 2 * OPERATION)
-            {
-                thread_args->total_op_num += 1;
-            }
-            if (res == 0)
-            {
-                if (i >= OPERATION && i <= 2 * OPERATION)
-                {
-                    thread_args->valid_op_num += 1;
-                }
-                break;
-            }
+            res = dequeue_ringbuf(ring_buffer, &data_ptr);
         }
-        BufferData *data = (BufferData *)data_ptr;
-        // data->data = thread_id;
 
-        while (true)
+        BufferData *data = (BufferData *)data_ptr;
+        data->data = thread_id;
+
+        // enqueue
+        res = 1;
+        while (res)
         {
-            int res = enqueue_ringbuf(ring_buffer, data);
-            if (i >= OPERATION && i <= 2 * OPERATION)
-            {
-                thread_args->total_op_num += 1;
-            }
-            if (res == 0)
-            {
-                if (i >= OPERATION && i <= 2 * OPERATION)
-                {
-                    thread_args->valid_op_num += 1;
-                }
-                break;
-            }
+            res = enqueue_ringbuf(ring_buffer, data_ptr);
+        }
+
+        // Increase counter.
+        if (i > OPERATION && i <= 2 * OPERATION)
+        {
+            thread_args->valid_op_num += 2;
         }
 
         if (i == OPERATION)
@@ -99,8 +84,7 @@ void *thread_function(void *args)
 
     thread_args->elapsed = (end.tv_sec - start.tv_sec) +
                            (end.tv_nsec - start.tv_nsec) / 1e9;
-    std::cout << "total_op=" << thread_args->total_op_num
-              << "\tvalid_op=" << thread_args->valid_op_num
+    std::cout << "valid_op=" << thread_args->valid_op_num
               << "\ttime=" << thread_args->elapsed << std::endl;
 
     return NULL;
@@ -188,7 +172,6 @@ int main(int argc, char *argv[])
         }
     }
 
-    double total_speed = 0;
     double valid_speed = 0;
 
     // Wait for all threads to finish
@@ -198,12 +181,10 @@ int main(int argc, char *argv[])
         {
             std::cerr << "Error: Unable to join thread " << i << "\n";
         }
-        total_speed += threadIds[i].total_op_num / threadIds[i].elapsed;
         valid_speed += threadIds[i].valid_op_num / threadIds[i].elapsed;
     }
 
     std::cout << "All threads have completed.\n";
-    std::cout << "Total operation speed: " << total_speed << " op/s.\n";
     std::cout << "Valid operation speed: " << valid_speed << " op/s.\n";
     return 0;
 }
