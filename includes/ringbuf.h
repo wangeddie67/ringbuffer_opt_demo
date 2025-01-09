@@ -18,6 +18,17 @@ public:
 class RingBuffer
 {
 public:
+
+#if defined(ALIGN_BUFFER)
+    alignas(64) int m_enqueue_mutex;
+    alignas(64) int m_dequeue_mutex;
+    alignas(64) unsigned int m_size;
+
+    alignas(64) unsigned int m_head;
+    alignas(64) unsigned int m_tail;
+
+    alignas(64) BufferEntry *m_entries;
+#else
     int m_enqueue_mutex;
     int m_dequeue_mutex;
     unsigned int m_size;
@@ -26,6 +37,7 @@ public:
     unsigned int m_tail;
 
     BufferEntry *m_entries;
+#endif
 
 public:
     RingBuffer(int entry_num)

@@ -8,7 +8,8 @@ SRCS = testbench/testbench.cc \
        srcs/mutex_nonblkring.cc \
 	   srcs/align_blkring.cc \
 	   srcs/atomic_blkring.cc
-OBJS = $(SRCS:.cc=.o)
+OBJS = $(SRCS:.cc=.o) \
+	   $(SRCS:.cc=_align.o)
 
 TARGET = mutex_blkring \
 		 mutex_nonblkring \
@@ -24,15 +25,18 @@ mutex_blkring: $(OBJS)
 mutex_nonblkring: $(OBJS)
 	$(CXX) $(CXXFLAGS) -o bin/$@ testbench/testbench.o srcs/mutex_nonblkring.o
 
-align_blkring: $(OBJS)
-	$(CXX) $(CXXFLAGS) -o bin/$@ testbench/testbench.o srcs/align_blkring.o
-
 atomic_blkring: $(OBJS)
 	$(CXX) $(CXXFLAGS) -o bin/$@ testbench/testbench.o srcs/atomic_blkring.o
+
+align_blkring: $(OBJS)
+	$(CXX) $(CXXFLAGS) -o bin/$@ testbench/testbench_align.o srcs/align_blkring_align.o
 
 # Rule to compile source files into object files
 %.o: %.cc
 	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+%_align.o: %.cc
+	$(CXX) $(CXXFLAGS) -c $< -o $@ -DALIGN_BUFFER
 
 # Clean rule
 clean:

@@ -4,9 +4,9 @@ result_table = []
 file_obj = open("autorun.out", "r", encoding="utf-8")
 
 for line in file_obj:
-    if line.startswith("Require"):
+    if line.startswith("Arguments"):
         tokens = line.split(" ")
-        thread_num = tokens[1]
+        thread_num = tokens[2]
         result_table.append([thread_num, 0])
     elif line.startswith("Valid operation speed"):
         tokens = line.split(" ")

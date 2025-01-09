@@ -10,15 +10,17 @@
 
 void usage()
 {
-    std::cout << "Usage: testbench -n <int> -l <int>" << std::endl;
+    std::cout << "Usage: testbench -n <int> [-l <int>] [-o <int>]" << std::endl;
     std::cout << "    -n: Number of nodes." << std::endl;
     std::cout << "    -l: Number of entry in buffer." << std::endl;
+    std::cout << "    -o: Number of operations under test." << std::endl;
 }
 
 class ThreadArgs
 {
 public:
     int m_thread_id;
+    int m_operation_num;
     RingBuffer *m_ring_buf;
 
     int valid_op_num = 0;
@@ -31,8 +33,6 @@ public:
     int data;
 };
 
-#define OPERATION 100000
-
 pthread_barrier_t global_barrier;
 
 void *thread_function(void *args)
@@ -41,12 +41,13 @@ void *thread_function(void *args)
 
     ThreadArgs *thread_args = (ThreadArgs *)args;
     int thread_id = thread_args->m_thread_id;
+    int operation_num = thread_args->m_operation_num;
     RingBuffer *ring_buffer = thread_args->m_ring_buf;
 
     struct timespec start, end;
 
     // enqueue
-    for (int i = 0; i < 3 * OPERATION; i++)
+    for (int i = 0; i < 3 * operation_num; i++)
     {
         // dequeue
         void *data_ptr;
@@ -67,16 +68,16 @@ void *thread_function(void *args)
         }
 
         // Increase counter.
-        if (i > OPERATION && i <= 2 * OPERATION)
+        if (i > operation_num && i <= 2 * operation_num)
         {
             thread_args->valid_op_num += 2;
         }
 
-        if (i == OPERATION)
+        if (i == operation_num)
         {
             clock_gettime(CLOCK_MONOTONIC, &start);
         }
-        else if (i == 2 * OPERATION)
+        else if (i == 2 * operation_num)
         {
             clock_gettime(CLOCK_MONOTONIC, &end);
         }
@@ -93,14 +94,14 @@ void *thread_function(void *args)
 int main(int argc, char *argv[])
 {
     // Check input arguments.
-    if (argc != 5)
+    if (argc != 3 && argc != 5 && argc != 7)
     {
         usage();
         exit(EXIT_FAILURE);
     }
-    char opt;
-    int thread_num, entry_num;
-    while ((opt = getopt(argc, argv, "n:l:")) != -1)
+    int opt;
+    int thread_num, entry_num = 256, operation_num = 100000;
+    while ((opt = getopt(argc, argv, "n:l:o:")) != -1)
     {
         switch (opt)
         {
@@ -110,13 +111,19 @@ int main(int argc, char *argv[])
         case 'l':
             entry_num = std::stoi(optarg);
             break;
+        case 'o':
+            operation_num = std::stoi(optarg);
+            break;
         default:
             usage();
             exit(EXIT_FAILURE);
         }
     }
 
-    std::cout << "Require " << thread_num << " threads." << std::endl;
+    std::cout << "Arguments:"
+              << " -n " << thread_num
+              << " -l " << entry_num
+              << " -o " << operation_num << std::endl;
 
     // Create ring buffer.
     RingBuffer ring_buffer = RingBuffer(entry_num);
@@ -144,6 +151,7 @@ int main(int argc, char *argv[])
     {
         threadIds[i].m_ring_buf = &ring_buffer;
         threadIds[i].m_thread_id = i;
+        threadIds[i].m_operation_num = operation_num;
         if (pthread_create(
                 &threads[i], NULL, thread_function, &threadIds[i]) != 0)
         {
