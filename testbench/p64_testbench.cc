@@ -6,7 +6,7 @@
 #include <unistd.h>
 #include <sched.h> // for CPU affinity functions
 
-#include "../includes/ringbuf.h"
+#include "../progress64/include/p64_blkring.h"
 
 void usage()
 {
@@ -21,7 +21,7 @@ class ThreadArgs
 public:
     int m_thread_id;
     int m_operation_num;
-    RingBuffer *m_ring_buf;
+    p64_blkring_t *m_ring_buf;
 
     int valid_op_num = 0;
     double elapsed = 0.0;
@@ -42,7 +42,7 @@ void *thread_function(void *args)
     ThreadArgs *thread_args = (ThreadArgs *)args;
     int thread_id = thread_args->m_thread_id;
     int operation_num = thread_args->m_operation_num;
-    RingBuffer *ring_buffer = thread_args->m_ring_buf;
+    p64_blkring_t *ring_buffer = thread_args->m_ring_buf;
 
     struct timespec start, end;
 
@@ -50,22 +50,15 @@ void *thread_function(void *args)
     for (int i = 0; i < 3 * operation_num; i++)
     {
         // dequeue
-        void *data_ptr;
-        int res = 1;
-        while (res)
-        {
-            res = dequeue_ringbuf(ring_buffer, &data_ptr);
-        }
+        void *data_ptr[] = {NULL};
+	unsigned int index;
+        p64_blkring_dequeue(ring_buffer, data_ptr, 1, &index);
 
-        BufferData *data = (BufferData *)data_ptr;
+        BufferData *data = (BufferData *)data_ptr[0];
         data->data = thread_id;
 
         // enqueue
-        res = 1;
-        while (res)
-        {
-            res = enqueue_ringbuf(ring_buffer, data_ptr);
-        }
+        p64_blkring_enqueue(ring_buffer, data_ptr, 1);
 
         // Increase counter.
         if (i > operation_num && i <= 2 * operation_num)
@@ -126,13 +119,13 @@ int main(int argc, char *argv[])
               << " -o " << operation_num << std::endl;
 
     // Create ring buffer.
-    RingBuffer ring_buffer = RingBuffer(entry_num);
-    init_ringbuf(&ring_buffer);
+    p64_blkring_t* ring_buffer = p64_blkring_alloc(entry_num);
     for (int i = 0; i < entry_num - 1; i++)
     {
         BufferData *data = (BufferData *)malloc(sizeof(BufferData));
         data->data = -1;
-        enqueue_ringbuf(&ring_buffer, data);
+        void* enq_ptr[] = {data};
+        p64_blkring_enqueue(ring_buffer, enq_ptr, 1);
     }
     std::cout << "Create shared ring buffer." << std::endl;
 
@@ -144,12 +137,12 @@ int main(int argc, char *argv[])
 
     // Core mapping array
     int cpu_num = 2;
-    int core_per_cpu = sysconf(_SC_NPROCESSORS_ONLN) / cpu_num / 2;
+    int core_per_cpu = sysconf(_SC_NPROCESSORS_ONLN) / cpu_num;
 
     // Create threads
     for (int i = 0; i < thread_num; i++)
     {
-        threadIds[i].m_ring_buf = &ring_buffer;
+        threadIds[i].m_ring_buf = ring_buffer;
         threadIds[i].m_thread_id = i;
         threadIds[i].m_operation_num = operation_num;
         if (pthread_create(
@@ -160,7 +153,7 @@ int main(int argc, char *argv[])
         }
 
         // Map each thread to a specific core
-        int coreId = ((i / cpu_num) + (i % cpu_num) * core_per_cpu) * 2;
+        int coreId = (i / cpu_num) + (i % cpu_num) * core_per_cpu;
 
         cpu_set_t cpuset;
         CPU_ZERO(&cpuset);        // Clear the CPU set

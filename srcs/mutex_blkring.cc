@@ -34,22 +34,21 @@ int init_ringbuf(RingBuffer *ringbuffer)
 int enqueue_ringbuf(RingBuffer *ring_buffer, void *entry)
 {
     lock(&ring_buffer->m_enqueue_mutex);
-    while (true)
+
+    // Ringbuffer is full. Do nothing.
+    bool full = true;
+    do
     {
-        // Ringbuffer is full. Do nothing.
-        if ((ring_buffer->m_head == ring_buffer->m_tail - 1) ||
-            (ring_buffer->m_tail == 0 &&
-             ring_buffer->m_head == ring_buffer->m_size - 1))
-        {
-        }
-        else
-        {
-            ring_buffer->m_entries[ring_buffer->m_head].m_ptr = entry;
-            ring_buffer->m_head =
-                (ring_buffer->m_head + 1) % ring_buffer->m_size;
-            break;
-        }
-    }
+        full = (ring_buffer->m_head == ring_buffer->m_tail - 1) ||
+               (ring_buffer->m_tail == 0 &&
+                ring_buffer->m_head == ring_buffer->m_size - 1);
+    } while (full);
+
+    // Enqueue entry.
+    ring_buffer->m_entries[ring_buffer->m_head].m_ptr = entry;
+    // Increase head pointer.
+    ring_buffer->m_head = (ring_buffer->m_head + 1) % ring_buffer->m_size;
+
     unlock(&ring_buffer->m_enqueue_mutex);
 
     return 0;
@@ -58,20 +57,19 @@ int enqueue_ringbuf(RingBuffer *ring_buffer, void *entry)
 int dequeue_ringbuf(RingBuffer *ring_buffer, void **entry)
 {
     lock(&ring_buffer->m_dequeue_mutex);
-    while (true)
+
+    // Ringbuffer is empty. Do nothing.
+    bool empty = true;
+    do
     {
-        // Ringbuffer is empty. Do nothing.
-        if (ring_buffer->m_head == ring_buffer->m_tail)
-        {
-        }
-        else
-        {
-            *entry = ring_buffer->m_entries[ring_buffer->m_tail].m_ptr;
-            ring_buffer->m_tail =
-                (ring_buffer->m_tail + 1) % ring_buffer->m_size;
-            break;
-        }
-    }
+        empty = ring_buffer->m_head == ring_buffer->m_tail;
+    } while (empty);
+
+    // Dequeue entry.
+    *entry = ring_buffer->m_entries[ring_buffer->m_tail].m_ptr;
+    // Increase tail pointer.
+    ring_buffer->m_tail = (ring_buffer->m_tail + 1) % ring_buffer->m_size;
+
     unlock(&ring_buffer->m_dequeue_mutex);
 
     return 0;

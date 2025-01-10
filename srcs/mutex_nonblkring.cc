@@ -32,56 +32,52 @@ int init_ringbuf(RingBuffer *ringbuffer)
 
 int enqueue_ringbuf(RingBuffer *ring_buffer, void *entry)
 {
-    int res = 0;
-
     // Lock mutex.
-    res = lock(&ring_buffer->m_enqueue_mutex);
-    if (res != 0) {
-        return res;
+    if (lock(&ring_buffer->m_enqueue_mutex) != 0)
+    {
+        return 1;
     }
 
     // Ringbuffer is full. Do nothing.
     if ((ring_buffer->m_head == ring_buffer->m_tail - 1) ||
         (ring_buffer->m_tail == 0 &&
-            ring_buffer->m_head == ring_buffer->m_size - 1))
+         ring_buffer->m_head == ring_buffer->m_size - 1))
     {
-        res = 1;
+        unlock(&ring_buffer->m_enqueue_mutex);
+        return 1;
     }
-    else
-    {
-        ring_buffer->m_entries[ring_buffer->m_head].m_ptr = entry;
-        ring_buffer->m_head =
-            (ring_buffer->m_head + 1) % ring_buffer->m_size;
-        res = 0;
-    }
+
+    // Enqueue entry.
+    ring_buffer->m_entries[ring_buffer->m_head].m_ptr = entry;
+    // Increase head pointer.
+    ring_buffer->m_head = (ring_buffer->m_head + 1) % ring_buffer->m_size;
+
     unlock(&ring_buffer->m_enqueue_mutex);
 
-    return res;
+    return 0;
 }
 
 int dequeue_ringbuf(RingBuffer *ring_buffer, void **entry)
 {
-    int res = 0;
-
     // Lock mutex.
-    res = lock(&ring_buffer->m_dequeue_mutex);
-    if (res != 0) {
-        return res;
+    if (lock(&ring_buffer->m_dequeue_mutex) != 0)
+    {
+        return 1;
     }
 
     // Ringbuffer is empty. Do nothing.
     if (ring_buffer->m_head == ring_buffer->m_tail)
     {
-        res = 1;
+        unlock(&ring_buffer->m_dequeue_mutex);
+        return 1;
     }
-    else
-    {
-        *entry = ring_buffer->m_entries[ring_buffer->m_tail].m_ptr;
-        ring_buffer->m_tail =
-            (ring_buffer->m_tail + 1) % ring_buffer->m_size;
-        res = 0;
-    }
+
+    // Dequeue entry.
+    *entry = ring_buffer->m_entries[ring_buffer->m_tail].m_ptr;
+    // Increase tail pointer.
+    ring_buffer->m_tail = (ring_buffer->m_tail + 1) % ring_buffer->m_size;
+
     unlock(&ring_buffer->m_dequeue_mutex);
 
-    return res;
+    return 0;
 }
