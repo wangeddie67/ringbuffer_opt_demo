@@ -10,10 +10,11 @@
 
 void usage()
 {
-    std::cout << "Usage: testbench -n <int> [-l <int>] [-o <int>]" << std::endl;
+    std::cout << "Usage: testbench -n <int> [-l <int>] [-o <int>] [-m <str>]" << std::endl;
     std::cout << "    -n: Number of nodes." << std::endl;
     std::cout << "    -l: Number of entry in buffer." << std::endl;
     std::cout << "    -o: Number of operations under test." << std::endl;
+    std::cout << "    -m: Core mapping method. Options: numa1, numa2, numa1-phy, numa2-phy" << std::endl;
 }
 
 class ThreadArgs
@@ -78,23 +79,60 @@ void *thread_function(void *args)
 
     thread_args->elapsed = (end.tv_sec - start.tv_sec) +
                            (end.tv_nsec - start.tv_nsec) / 1e9;
-    std::cout << "valid_op=" << thread_args->valid_op_num
-              << "\ttime=" << thread_args->elapsed << std::endl;
-
     return NULL;
+}
+
+int core_mapping(int thread_id, char *rule)
+{
+    int core_id = thread_id;
+    // Only 1 Numa node, logical cores.
+    if (strcmp(rule, "numa1") == 0)
+    {
+        core_id = thread_id;
+    }
+    // 2 Numa nodes, logical cores.
+    else if (strcmp(rule, "numa2") == 0)
+    {
+        int core_per_cpu = sysconf(_SC_NPROCESSORS_ONLN) / 2;
+        core_id = thread_id / 2 + (thread_id % 2) * core_per_cpu;
+    }
+    // Only 1 Numa node, only physical core.
+    else if (strcmp(rule, "numa1-phy") == 0)
+    {
+        core_id = thread_id * 2;
+    }
+    // 2 Numa nodes, only physical core.
+    else if (strcmp(rule, "numa2-phy") == 0)
+    {
+        int core_per_cpu = sysconf(_SC_NPROCESSORS_ONLN) / 2;
+        core_id = (thread_id / 2) * 2 + (thread_id % 2) * core_per_cpu;
+    }
+    else {
+        std::cerr << "Unknown core mapping rule." << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    if (core_id > sysconf(_SC_NPROCESSORS_ONLN)) {
+        std::cerr << "Error: Unexist core " << core_id
+                  << " (for thread " << thread_id << ")." << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    return core_id;
 }
 
 int main(int argc, char *argv[])
 {
     // Check input arguments.
-    if (argc != 3 && argc != 5 && argc != 7)
+    if (argc != 3 && argc != 5 && argc != 7 && argc != 9)
     {
         usage();
         exit(EXIT_FAILURE);
     }
     int opt;
     int thread_num, entry_num = 256, operation_num = 100000;
-    while ((opt = getopt(argc, argv, "n:l:o:")) != -1)
+    char core_mapping_rule[20] = "numa1";
+    while ((opt = getopt(argc, argv, "n:l:o:m:")) != -1)
     {
         switch (opt)
         {
@@ -107,6 +145,9 @@ int main(int argc, char *argv[])
         case 'o':
             operation_num = std::stoi(optarg);
             break;
+        case 'm':
+            strcpy(core_mapping_rule, optarg);
+            break;
         default:
             usage();
             exit(EXIT_FAILURE);
@@ -116,7 +157,17 @@ int main(int argc, char *argv[])
     std::cout << "Arguments:"
               << " -n " << thread_num
               << " -l " << entry_num
-              << " -o " << operation_num << std::endl;
+              << " -o " << operation_num
+              << " -m " << core_mapping_rule << std::endl;
+
+    // Core mapping.
+    int core_id[thread_num];
+    std::cout << "Core mapping:";
+    for (int i = 0; i < thread_num; i ++) {
+        core_id[i] = core_mapping(i, core_mapping_rule);
+        std::cout << " " << core_id[i];
+    }
+    std::cout << std::endl;
 
     // Create ring buffer.
     p64_blkring_t* ring_buffer = p64_blkring_alloc(entry_num);
@@ -135,10 +186,6 @@ int main(int argc, char *argv[])
     // Initialize barrier
     pthread_barrier_init(&global_barrier, NULL, thread_num);
 
-    // Core mapping array
-    int cpu_num = 2;
-    int core_per_cpu = sysconf(_SC_NPROCESSORS_ONLN) / cpu_num;
-
     // Create threads
     for (int i = 0; i < thread_num; i++)
     {
@@ -152,12 +199,9 @@ int main(int argc, char *argv[])
             return 1;
         }
 
-        // Map each thread to a specific core
-        int coreId = (i / cpu_num) + (i % cpu_num) * core_per_cpu;
-
         cpu_set_t cpuset;
         CPU_ZERO(&cpuset);        // Clear the CPU set
-        CPU_SET(coreId, &cpuset); // Add the specified core to the set
+        CPU_SET(core_id[i], &cpuset); // Add the specified core to the set
 
         // Set thread affinity
         int result =
@@ -167,25 +211,38 @@ int main(int argc, char *argv[])
             std::cerr << "Error setting thread affinity: "
                       << strerror(result) << "\n";
         }
-        else
-        {
-            std::cout << "Thread " << i << " mapped to core " << coreId << "\n";
-        }
     }
 
     double valid_speed = 0;
 
     // Wait for all threads to finish
+    int valid_op_num[thread_num] = {0};
+    double elapsed[thread_num] = {0.0};
     for (int i = 0; i < thread_num; i++)
     {
         if (pthread_join(threads[i], NULL) != 0)
         {
             std::cerr << "Error: Unable to join thread " << i << "\n";
         }
+
+        valid_op_num[i] = threadIds[i].valid_op_num;
+        elapsed[i] = threadIds[i].elapsed;
         valid_speed += threadIds[i].valid_op_num / threadIds[i].elapsed;
     }
 
     std::cout << "All threads have completed.\n";
+    std::cout << "Valid Op:";
+    for (int i = 0; i < thread_num; i++)
+    {
+        std::cout << " " << threadIds[i].valid_op_num;
+    }
+    std::cout << std::endl;
+    std::cout << "Elapsed :";
+    for (int i = 0; i < thread_num; i++)
+    {
+        std::cout << " " << threadIds[i].elapsed;
+    }
+    std::cout << std::endl;
     std::cout << "Valid operation speed: " << valid_speed << " op/s.\n";
     return 0;
 }

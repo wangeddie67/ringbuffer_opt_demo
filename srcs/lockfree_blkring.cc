@@ -34,15 +34,12 @@ int enqueue_ringbuf(RingBuffer *ring_buffer, void *entry)
     void *entry_ptr;
     do
     {
-        entry_sn = __atomic_load_n(
-            &ring_buffer->m_entries[enq_ptr].m_sn, __ATOMIC_RELAXED);
-        entry_ptr = __atomic_load_n(
-            &ring_buffer->m_entries[enq_ptr].m_ptr, __ATOMIC_RELAXED);
+        entry_sn = ring_buffer->m_entries[enq_ptr].m_sn;
+        entry_ptr = ring_buffer->m_entries[enq_ptr].m_ptr;
         // Ringbuffer is full. Do nothing.
     } while (entry_sn != sn || entry_ptr != NULL);
 
-    __atomic_store_n(&ring_buffer->m_entries[enq_ptr].m_ptr, entry,
-                     __ATOMIC_RELEASE);
+    ring_buffer->m_entries[enq_ptr].m_ptr = entry;
 
     return 0;
 }
@@ -56,17 +53,13 @@ int dequeue_ringbuf(RingBuffer *ring_buffer, void **entry)
     void *entry_ptr;
     do
     {
-        entry_sn = __atomic_load_n(
-            &ring_buffer->m_entries[deq_ptr].m_sn, __ATOMIC_RELAXED);
-        entry_ptr = __atomic_load_n(
-            &ring_buffer->m_entries[deq_ptr].m_ptr, __ATOMIC_ACQUIRE);
+        entry_sn = ring_buffer->m_entries[deq_ptr].m_sn;
+        entry_ptr = ring_buffer->m_entries[deq_ptr].m_ptr;
     } while (entry_ptr == NULL || entry_sn != sn);
 
     *entry = entry_ptr;
-    __atomic_store_n(&ring_buffer->m_entries[deq_ptr].m_ptr, 0,
-                     __ATOMIC_RELAXED);
-    __atomic_store_n(&ring_buffer->m_entries[deq_ptr].m_sn,
-                     sn + ring_buffer->m_size, __ATOMIC_RELEASE);
+    ring_buffer->m_entries[deq_ptr].m_ptr = 0;
+    ring_buffer->m_entries[deq_ptr].m_sn = sn + ring_buffer->m_size;
 
     return 0;
 }

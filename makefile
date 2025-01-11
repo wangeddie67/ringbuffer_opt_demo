@@ -4,18 +4,20 @@ CXXFLAGS = -g -pthread
 #CXXFLAGS = -std=c++17 -Wall -O2
 
 SRCS = testbench/testbench.cc \
-	testbench/p64_testbench.cc \
-       srcs/mutex_blkring.cc \
-       srcs/mutex_nonblkring.cc \
-	   srcs/align_blkring.cc \
-	   srcs/atomic_blkring.cc
+		testbench/p64_testbench.cc \
+		srcs/mutex_blkring.cc \
+		srcs/mutex_nonblkring.cc \
+		srcs/lockfree_blkring.cc \
+		srcs/align_blkring.cc \
+		srcs/atomic_blkring.cc
 OBJS = $(SRCS:.cc=.o) \
-	   $(SRCS:.cc=_align.o)
+		$(SRCS:.cc=_align.o)
 
 TARGET = mutex_blkring \
-		 mutex_nonblkring \
-		 align_blkring \
-		 atomic_blkring
+		mutex_nonblkring \
+		lockfree_blkring \
+		align_blkring \
+		atomic_blkring
 
 all: $(TARGET)
 
@@ -27,6 +29,9 @@ mutex_blkring: $(OBJS)
 
 mutex_nonblkring: $(OBJS)
 	$(CXX) $(CXXFLAGS) -o bin/$@ testbench/testbench.o srcs/mutex_nonblkring.o
+
+lockfree_blkring: $(OBJS)
+	$(CXX) $(CXXFLAGS) -o bin/$@ testbench/testbench.o srcs/lockfree_blkring.o
 
 atomic_blkring: $(OBJS)
 	$(CXX) $(CXXFLAGS) -o bin/$@ testbench/testbench.o srcs/atomic_blkring.o
