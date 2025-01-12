@@ -6,7 +6,23 @@
 #include <unistd.h>
 #include <sched.h> // for CPU affinity functions
 
+#if defined(MUTEX_BLKRING)
+#include "../srcs/mutex_blkring.h"
+#elif defined(LOCKFREE_BLKRING)
+#include "../srcs/lockfree_blkring.h"
+#elif defined(ATOMIC_BLKRING)
+#include "../srcs/atomic_blkring.h"
+#elif defined(ALIGN_BLKRING)
+#include "../srcs/align_blkring.h"
+#elif defined(BUCK_BLKRING)
+#include "../srcs/buck_blkring.h"
+#elif defined(P64_BLKRING)
+#include "../srcs/p64_blkring.h"
+#elif defined(P64_BUCKRING)
+#include "../srcs/p64_buckring.h"
+#else
 #include "../includes/ringbuf.h"
+#endif
 
 void usage()
 {
@@ -177,13 +193,12 @@ int main(int argc, char *argv[])
     std::cout << std::endl;
 
     // Create ring buffer.
-    RingBuffer ring_buffer = RingBuffer(entry_num);
-    init_ringbuf(&ring_buffer);
+    RingBuffer* ring_buffer = create_ringbuf(entry_num);
     for (int i = 0; i < entry_num - 1; i++)
     {
         BufferData *data = (BufferData *)malloc(sizeof(BufferData));
         data->data = -1;
-        enqueue_ringbuf(&ring_buffer, data);
+        enqueue_ringbuf(ring_buffer, data);
     }
     std::cout << "Create shared ring buffer." << std::endl;
 
@@ -196,7 +211,7 @@ int main(int argc, char *argv[])
     // Create threads
     for (int i = 0; i < thread_num; i++)
     {
-        threadIds[i].m_ring_buf = &ring_buffer;
+        threadIds[i].m_ring_buf = ring_buffer;
         threadIds[i].m_thread_id = i;
         threadIds[i].m_operation_num = operation_num;
         if (pthread_create(

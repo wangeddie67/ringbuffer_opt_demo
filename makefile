@@ -1,58 +1,42 @@
 
 CXX = g++
 CXXFLAGS = -g -pthread 
-#CXXFLAGS = -std=c++17 -Wall -O2
 
-SRCS = testbench/testbench.cc \
-		testbench/p64_testbench.cc \
-		srcs/mutex_blkring.cc \
-		srcs/mutex_nonblkring.cc \
-		srcs/lockfree_blkring.cc \
-		srcs/align_blkring.cc \
-		srcs/atomic_blkring.cc
-OBJS = $(SRCS:.cc=.o) \
-		$(SRCS:.cc=_align.o)
+TARGET = 
+all: mutex_blkring lockfree_blkring atomic_blkring align_blkring buck_blkring
 
-TARGET = mutex_blkring \
-		mutex_nonblkring \
-		lockfree_blkring \
-		align_blkring \
-		atomic_blkring
 
-all: $(TARGET)
-
-arm: p64_blkring
+arm: p64_blkring p64_buckring
 
 # Rule to build the executable
-mutex_blkring: $(OBJS)
-	$(CXX) $(CXXFLAGS) -o bin/$@ testbench/testbench_align.o srcs/mutex_blkring_align.o
+mutex_blkring:
+	$(CXX) $(CXXFLAGS) -o bin/$@ testbench/testbench.cc -DMUTEX_BLKRING
 
-mutex_nonblkring: $(OBJS)
-	$(CXX) $(CXXFLAGS) -o bin/$@ testbench/testbench.o srcs/mutex_nonblkring.o
+lockfree_blkring:
+	$(CXX) $(CXXFLAGS) -o bin/$@ testbench/testbench.cc -DLOCKFREE_BLKRING
 
-lockfree_blkring: $(OBJS)
-	$(CXX) $(CXXFLAGS) -o bin/$@ testbench/testbench.o srcs/lockfree_blkring.o
+atomic_blkring:
+	$(CXX) $(CXXFLAGS) -o bin/$@ testbench/testbench.cc -DATOMIC_BLKRING
 
-atomic_blkring: $(OBJS)
-	$(CXX) $(CXXFLAGS) -o bin/$@ testbench/testbench.o srcs/atomic_blkring.o
+align_blkring:
+	$(CXX) $(CXXFLAGS) -o bin/$@ testbench/testbench.cc -DALIGN_BLKRING
 
-align_blkring: $(OBJS)
-	$(CXX) $(CXXFLAGS) -o bin/$@ testbench/testbench_align.o srcs/align_blkring_align.o
+buck_blkring:
+	$(CXX) $(CXXFLAGS) -o bin/$@ testbench/testbench.cc -DBUCK_BLKRING
 
-p64_blkring: $(OBJS)
-	$(CXX) $(CXXFLAGS) -o bin/$@ testbench/p64_testbench.o progress64/libprogress64.a
+p64_blkring:
+	$(CXX) $(CXXFLAGS) -o bin/$@ testbench/p64_testbench.o progress64/libprogress64.a -DP64_BLKRING
 
+p64_buckring:
+	$(CXX) $(CXXFLAGS) -o bin/$@ testbench/p64_testbench.o progress64/libprogress64.a -DP64_BUCKRING
 
 # Rule to compile source files into object files
 %.o: %.cc
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-%_align.o: %.cc
-	$(CXX) $(CXXFLAGS) -c $< -o $@ -DALIGN_BUFFER
-
 # Clean rule
 clean:
-	rm -f $(OBJS) $(TARGET)
+	rm -f $(TARGET)
 
 # Run rule (optional)
 run: $(TARGET)
