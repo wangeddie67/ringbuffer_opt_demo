@@ -13,17 +13,17 @@ RingBuffer* create_ringbuf(int entry_num)
 int enqueue_ringbuf(RingBuffer *ring_buffer, void *entry)
 {
     void* enq_ptr[] = {entry};
-    p64_buckring_enqueue(ring_buffer, enq_ptr, 1);
+    int res = p64_buckring_enqueue(ring_buffer, enq_ptr, 1);
 
-    return 0;
+    return res ? 0 : 1;
 }
 
 int dequeue_ringbuf(RingBuffer *ring_buffer, void **entry)
 {
     void* deq_ptr[] = {NULL};
 	unsigned int index;
-    p64_buckring_dequeue(ring_buffer, deq_ptr, 1, &index);
+    int res = p64_buckring_dequeue(ring_buffer, deq_ptr, 1, &index);
     *entry = deq_ptr[0];
 
-    return 0;
+    return res ? 0 : 1;
 }

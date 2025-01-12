@@ -25,10 +25,10 @@ buck_blkring:
 	$(CXX) $(CXXFLAGS) -o bin/$@ testbench/testbench.cc -DBUCK_BLKRING
 
 p64_blkring:
-	$(CXX) $(CXXFLAGS) -o bin/$@ testbench/p64_testbench.o progress64/libprogress64.a -DP64_BLKRING
+	$(CXX) $(CXXFLAGS) -o bin/$@ testbench/testbench.cc progress64/libprogress64.a -DP64_BLKRING
 
 p64_buckring:
-	$(CXX) $(CXXFLAGS) -o bin/$@ testbench/p64_testbench.o progress64/libprogress64.a -DP64_BUCKRING
+	$(CXX) $(CXXFLAGS) -o bin/$@ testbench/testbench.cc progress64/libprogress64.a -DP64_BUCKRING
 
 # Rule to compile source files into object files
 %.o: %.cc

@@ -31,9 +31,14 @@ for i in $(seq 2 $MAX_THREAD); do
     ./bin/buck_blkring -n "$i" -l 256 -o 100000 -m numa1-phy | tee -a autorun.out
 done
 
-echo "==== pc64 ====" >> autorun.out
+echo "==== p64_blkring ====" >> autorun.out
 for i in $(seq 2 $MAX_THREAD); do
     ./bin/p64_blkring -n "$i" -l 256 -o 100000 -m numa1-phy | tee -a autorun.out
+done
+
+echo "==== p64_buckring ====" >> autorun.out
+for i in $(seq 2 $MAX_THREAD); do
+    ./bin/p64_buckring -n "$i" -l 256 -o 100000 -m numa1-phy | tee -a autorun.out
 done
 
 python3 collect_result.py
