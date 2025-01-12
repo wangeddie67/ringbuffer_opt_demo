@@ -194,7 +194,7 @@ int main(int argc, char *argv[])
 
     // Create ring buffer.
     RingBuffer* ring_buffer = create_ringbuf(entry_num);
-    for (int i = 0; i < entry_num - 1; i++)
+    for (int i = 0; i < entry_num; i++)
     {
         BufferData *data = (BufferData *)malloc(sizeof(BufferData));
         data->data = -1;

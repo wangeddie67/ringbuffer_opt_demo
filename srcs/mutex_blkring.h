@@ -69,18 +69,13 @@ int enqueue_ringbuf(RingBuffer *ring_buffer, void *entry)
     lock(&ring_buffer->m_enqueue_mutex);
 
     // Ringbuffer is full. Do nothing.
-    bool full = true;
-    do
-    {
-        full = (ring_buffer->m_head == ring_buffer->m_tail - 1) ||
-               (ring_buffer->m_tail == 0 &&
-                ring_buffer->m_head == ring_buffer->m_size - 1);
-    } while (full);
+    while (ring_buffer->m_head + ring_buffer->m_size == ring_buffer->m_tail);
 
     // Enqueue entry.
-    ring_buffer->mp_entries[ring_buffer->m_head].mp_ptr = entry;
-    // Increase head pointer.
-    ring_buffer->m_head = (ring_buffer->m_head + 1) % ring_buffer->m_size;
+    int enq_ptr = ring_buffer->m_tail % ring_buffer->m_size;
+    ring_buffer->mp_entries[enq_ptr].mp_ptr = entry;
+    // Increase tail pointer.
+    ring_buffer->m_tail = ring_buffer->m_tail + 1;
 
     unlock(&ring_buffer->m_enqueue_mutex);
 
@@ -92,16 +87,14 @@ int dequeue_ringbuf(RingBuffer *ring_buffer, void **entry)
     lock(&ring_buffer->m_dequeue_mutex);
 
     // Ringbuffer is empty. Do nothing.
-    bool empty = true;
-    do
-    {
-        empty = ring_buffer->m_head == ring_buffer->m_tail;
-    } while (empty);
+    while (ring_buffer->m_head == ring_buffer->m_tail);
 
     // Dequeue entry.
-    *entry = ring_buffer->mp_entries[ring_buffer->m_tail].mp_ptr;
-    // Increase tail pointer.
-    ring_buffer->m_tail = (ring_buffer->m_tail + 1) % ring_buffer->m_size;
+    int deq_ptr = ring_buffer->m_head % ring_buffer->m_size;
+    *entry = ring_buffer->mp_entries[deq_ptr].mp_ptr;
+    ring_buffer->mp_entries[deq_ptr].mp_ptr = NULL;
+    // Increase head pointer.
+    ring_buffer->m_head = ring_buffer->m_head + 1;
 
     unlock(&ring_buffer->m_dequeue_mutex);
 

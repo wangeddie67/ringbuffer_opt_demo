@@ -55,7 +55,7 @@ RingBuffer* create_ringbuf(int entry_num)
 
 int enqueue_ringbuf(RingBuffer *ring_buffer, void *entry)
 {
-    int sn = __atomic_fetch_add(&ring_buffer->m_head, 1, __ATOMIC_RELAXED);
+    int sn = __atomic_fetch_add(&ring_buffer->m_tail, 1, __ATOMIC_RELAXED);
     int enq_ptr = sn % ring_buffer->m_size;
 
     unsigned int entry_sn;
@@ -76,7 +76,7 @@ int enqueue_ringbuf(RingBuffer *ring_buffer, void *entry)
 
 int dequeue_ringbuf(RingBuffer *ring_buffer, void **entry)
 {
-    int sn = __atomic_fetch_add(&ring_buffer->m_tail, 1, __ATOMIC_RELAXED);
+    int sn = __atomic_fetch_add(&ring_buffer->m_head, 1, __ATOMIC_RELAXED);
     int deq_ptr = sn % ring_buffer->m_size;
 
     unsigned int entry_sn;
